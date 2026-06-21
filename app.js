@@ -1,5 +1,6 @@
 const API_KEY = 'be669a7810223736f57370c30634d3e0';
 const API_BASE = 'https://v3.football.api-sports.io';
+const SQUAD_API_URL = `${API_BASE}/players/squads`;
 const STANDINGS_SEASON = 2026;
 
 /** World Cup 2026 — Group G */
@@ -20,6 +21,7 @@ const GROUP_G_WORLD_CUP = {
 let allClubFacts = [];
 let teamsCache = [];
 let activeClubView = null;
+let egyptSquadData = null;
 
 const CURATED_CLUB_FACTS = [
   { match: 'egypt', facts: [
@@ -253,6 +255,109 @@ async function fetchFromApi(endpoint) {
   return data;
 }
 
+function buildSquadUrl(teamId) {
+  return `${SQUAD_API_URL}?team=${teamId}`;
+}
+
+/** Squad: https://v3.football.api-sports.io/players/squads?team=TEAM_ID */
+async function fetchTeamSquad(teamId) {
+  const url = buildSquadUrl(teamId);
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: { 'x-apisports-key': API_KEY },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Squad request failed (${response.status})`);
+  }
+
+  const data = await response.json();
+
+  if (data.errors && Object.keys(data.errors).length > 0) {
+    throw new Error(Object.values(data.errors).join(' ') || 'Squad API returned an error');
+  }
+
+  return data.response?.[0]?.players || [];
+}
+
+async function fetchEgyptSquad(teamId) {
+  const id = teamId ?? getEgyptNationalTeam()?.id;
+  if (!id) {
+    egyptSquadData = null;
+    return null;
+  }
+
+  try {
+    const players = await fetchTeamSquad(id);
+    egyptSquadData = { teamId: id, players };
+    return egyptSquadData;
+  } catch (err) {
+    console.error('Egypt squad unavailable:', err);
+    egyptSquadData = { teamId: id, players: [] };
+    return egyptSquadData;
+  }
+}
+
+function buildSquadFacts(squad, teamName) {
+  const facts = [];
+
+  if (squad.length === 0) {
+    facts.push(`${teamName}'s squad features players from across Egypt and abroad.`);
+    return facts;
+  }
+
+  facts.push(`${teamName} squad lists ${squad.length} players.`);
+
+  squad.slice(0, 8).forEach((player) => {
+    const number = player.number ? `#${player.number} ` : '';
+    const position = player.position ? ` (${player.position})` : '';
+    facts.push(`${number}${player.name}${position}.`);
+  });
+
+  return facts;
+}
+
+function renderSquadSection(players, teamName) {
+  if (players.length === 0) {
+    return `
+      <section class="squad-section">
+        <h3 class="club-block-title">Squad</h3>
+        <p class="squad-empty">No squad data available right now.</p>
+      </section>
+    `;
+  }
+
+  const cards = players.map((player) => `
+    <article class="squad-player">
+      <div class="squad-player-photo">
+        ${player.photo
+          ? `<img src="${player.photo}" alt="${escapeHtml(player.name)}" loading="lazy">`
+          : '<span class="squad-player-placeholder">👤</span>'}
+        ${player.number ? `<span class="squad-player-number">${player.number}</span>` : ''}
+      </div>
+      <h4 class="squad-player-name">${escapeHtml(player.name)}</h4>
+      <p class="squad-player-position">${escapeHtml(player.position || 'Player')}</p>
+      ${player.age ? `<p class="squad-player-age">Age ${player.age}</p>` : ''}
+    </article>
+  `).join('');
+
+  return `
+    <section class="squad-section">
+      <h3 class="club-block-title">Squad <span class="club-facts-count">${players.length}</span></h3>
+      <div class="squad-grid">${cards}</div>
+    </section>
+  `;
+}
+
+function renderEgyptSquadBlock() {
+  const players = egyptSquadData?.players || [];
+  return `
+    <div class="egypt-squad-block">
+      ${renderSquadSection(players, 'Egypt')}
+    </div>
+  `;
+}
+
 function getEgyptNationalTeam() {
   return teamsCache.find((item) => isNationalTeam(item.team))?.team || null;
 }
@@ -335,14 +440,15 @@ function buildGlobalStandingsFacts() {
   ];
 }
 
-function loadAllFactsForTeam(team, venue) {
+function loadAllFactsForTeam(team, venue, squad = []) {
   const curated = getCuratedFacts(team.name);
   const apiFacts = buildApiFacts(team, venue);
   const generic = curated.length === 0
     ? [`${team.name} is part of Egypt's rich football landscape.`]
     : [];
   const standingsFacts = buildStandingsFacts(team.name);
-  return [...new Set([...curated, ...apiFacts, ...generic, ...standingsFacts])];
+  const squadFacts = buildSquadFacts(squad, team.name);
+  return [...new Set([...curated, ...apiFacts, ...generic, ...standingsFacts, ...squadFacts])];
 }
 
 function renderGroupGTableRows() {
@@ -438,14 +544,16 @@ function renderStandingsSection() {
         </div>
       </div>
       ${renderGroupGTableMarkup()}
+      ${renderEgyptSquadBlock()}
     </div>
   `;
 }
 
-function renderClubPageContent(facts, team) {
+function renderClubPageContent(facts, squad, team) {
   const isEgypt = team.name.toLowerCase() === 'egypt';
 
   return `
+    ${renderSquadSection(squad, team.name)}
     ${isEgypt ? `
       <section class="club-block">
         <h3 class="club-block-title">World Cup Group G</h3>
@@ -466,10 +574,6 @@ function renderClubPageContent(facts, team) {
 function openClubPage(team, venue) {
   const tagClass = isNationalTeam(team) ? 'tag-national' : 'tag-club';
   const tagLabel = isNationalTeam(team) ? 'NATIONAL TEAM' : 'CLUB';
-  const facts = loadAllFactsForTeam(team, venue);
-
-  facts.forEach((fact) => allClubFacts.push({ team: team.name, fact, logo: team.logo }));
-  activeClubView = { team, venue, facts };
 
   clubPageHeader.innerHTML = `
     <div class="club-page-hero">
@@ -485,11 +589,31 @@ function openClubPage(team, venue) {
     </div>
   `;
 
-  clubPageBody.innerHTML = renderClubPageContent(facts, team);
+  clubPageBody.innerHTML = `
+    <div class="club-page-loading">
+      <div class="loading-spinner"></div>
+      <p>Loading squad &amp; facts…</p>
+    </div>
+  `;
+
   homeView.hidden = true;
   clubPage.hidden = false;
   if (bottomNav) bottomNav.hidden = true;
   window.scrollTo({ top: 0, behavior: 'instant' });
+
+  fetchTeamSquad(team.id)
+    .then((squad) => {
+      const facts = loadAllFactsForTeam(team, venue, squad);
+      facts.forEach((fact) => allClubFacts.push({ team: team.name, fact, logo: team.logo }));
+      activeClubView = { team, venue, squad, facts };
+      clubPageBody.innerHTML = renderClubPageContent(facts, squad, team);
+    })
+    .catch(() => {
+      const squad = [];
+      const facts = loadAllFactsForTeam(team, venue, squad);
+      activeClubView = { team, venue, squad, facts };
+      clubPageBody.innerHTML = renderClubPageContent(facts, squad, team);
+    });
 }
 
 function closeClubPage() {
@@ -611,6 +735,7 @@ function showRandomClubFact() {
 async function loadEgyptTeams() {
   allClubFacts = [];
   teamsCache = [];
+  egyptSquadData = null;
   activeClubView = null;
   clubSearch.value = '';
   searchResults.innerHTML = '';
@@ -637,15 +762,21 @@ async function loadEgyptTeams() {
 
     teamsCache = teams;
     updateSearchHint();
+
+    const egyptTeam = getEgyptNationalTeam();
+    await fetchEgyptSquad(egyptTeam?.id);
+
     renderStandingsSection();
 
     buildGlobalStandingsFacts().forEach((fact) => {
       allClubFacts.push({ team: 'Egypt', fact, logo: getEgyptNationalTeam()?.logo || '' });
     });
 
-    const egyptTeam = getEgyptNationalTeam();
     if (egyptTeam) {
       buildStandingsFacts(egyptTeam.name).forEach((fact) => {
+        allClubFacts.push({ team: egyptTeam.name, fact, logo: egyptTeam.logo });
+      });
+      buildSquadFacts(egyptSquadData?.players || [], egyptTeam.name).forEach((fact) => {
         allClubFacts.push({ team: egyptTeam.name, fact, logo: egyptTeam.logo });
       });
     }
