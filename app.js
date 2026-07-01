@@ -1,27 +1,59 @@
 const API_KEY = 'be669a7810223736f57370c30634d3e0';
 const API_BASE = 'https://v3.football.api-sports.io';
 const SQUAD_API_URL = `${API_BASE}/players/squads`;
+const STANDINGS_API_URL = `${API_BASE}/standings`;
+const LEAGUES_API_URL = `${API_BASE}/leagues`;
+const FIXTURES_API_URL = `${API_BASE}/fixtures`;
 const STANDINGS_SEASON = 2026;
+const FALLBACK_WORLD_CUP_LEAGUE_ID = 1;
+const FIXTURES_NEXT_COUNT = 5;
+const FIXTURES_LAST_COUNT = 5;
+const STANDINGS_REFRESH_MS = 3 * 60 * 1000;
+const STANDINGS_RETRY_MS = 60 * 1000;
 
-/** World Cup 2026 — Group G */
+/** World Cup 2026 — Group G (final standings, source: FIFA / Wikipedia) */
 const GROUP_G_WORLD_CUP = {
   groupName: 'Group G',
   teams: [
-    { rank: 1, name: 'New Zealand', flag: 'https://media.api-sports.io/football/teams/4673.png', played: 1, win: 0, draw: 1, lose: 0, gf: 2, ga: 2, gd: 0, points: 1 },
-    { rank: 2, name: 'Iran', flag: 'https://media.api-sports.io/football/teams/22.png', played: 1, win: 0, draw: 1, lose: 0, gf: 2, ga: 2, gd: 0, points: 1 },
-    { rank: 3, name: 'Belgium', flag: 'https://media.api-sports.io/football/teams/1.png', played: 1, win: 0, draw: 1, lose: 0, gf: 1, ga: 1, gd: 0, points: 1 },
-    { rank: 4, name: 'Egypt', flag: null, played: 1, win: 0, draw: 1, lose: 0, gf: 1, ga: 1, gd: 0, points: 1, isEgypt: true },
+    { rank: 1, name: 'Belgium', flag: 'https://media.api-sports.io/football/teams/1.png', played: 3, win: 1, draw: 2, lose: 0, gf: 6, ga: 2, gd: 4, points: 5, form: 'WDW', qualified: true },
+    { rank: 2, name: 'Egypt', flag: null, played: 3, win: 1, draw: 2, lose: 0, gf: 5, ga: 3, gd: 2, points: 5, form: 'DWD', isEgypt: true, qualified: true },
+    { rank: 3, name: 'Iran', flag: 'https://media.api-sports.io/football/teams/22.png', played: 3, win: 0, draw: 3, lose: 0, gf: 3, ga: 3, gd: 0, points: 3, form: 'DDD', eliminated: true },
+    { rank: 4, name: 'New Zealand', flag: 'https://media.api-sports.io/football/teams/4673.png', played: 3, win: 0, draw: 1, lose: 2, gf: 4, ga: 10, gd: -6, points: 1, form: 'DLL', eliminated: true },
   ],
   results: [
-    { home: 'Belgium', away: 'Egypt', score: '1–1' },
-    { home: 'Iran', away: 'New Zealand', score: '2–2' },
+    { matchday: 1, home: 'Belgium', away: 'Egypt', score: '1–1' },
+    { matchday: 1, home: 'Iran', away: 'New Zealand', score: '2–2' },
+    { matchday: 2, home: 'Belgium', away: 'Iran', score: '0–0' },
+    { matchday: 2, home: 'New Zealand', away: 'Egypt', score: '1–3' },
+    { matchday: 3, home: 'Egypt', away: 'Iran', score: '1–1' },
+    { matchday: 3, home: 'New Zealand', away: 'Belgium', score: '1–5' },
   ],
+};
+
+const GROUP_G_MAX_MATCHES = 3;
+
+/** Egypt knockout path after qualifying 2nd in Group G */
+const EGYPT_KNOCKOUT_PATH = {
+  nextRound: 'Round of 32',
+  nextOpponent: 'Australia',
+  nextNote: 'Group D runners-up',
+  winRound: 'Round of 16',
+  winOpponent: 'Argentina',
 };
 
 let allClubFacts = [];
 let teamsCache = [];
 let activeClubView = null;
 let egyptSquadData = null;
+let worldCupLeagueInfo = null;
+let worldLeaguesData = null;
+let standingsData = null;
+let egyptFixturesData = null;
+let standingsRefreshTimer = null;
+let standingsVisibilityHandler = null;
+let lastStandingsError = null;
+let standingsLastUpdated = null;
+let lastEgyptStandingsSnapshot = null;
 
 const CURATED_CLUB_FACTS = [
   { match: 'egypt', facts: [
@@ -37,6 +69,8 @@ const CURATED_CLUB_FACTS = [
     'The Pharaohs are perennial favourites every time AFCON comes around.',
     'Egypt\'s passionate supporters fill stadiums across the country for home qualifiers.',
     'The national team represents over 100 million football-mad Egyptians worldwide.',
+    'Egypt finished 2nd in World Cup 2026 Group G and qualified for the Round of 32.',
+    'Next up for the Pharaohs: Australia in the Round of 32 — beat them and Egypt face Argentina in the Round of 16.',
   ]},
   { match: 'ahly', facts: [
     'Al Ahly are the most successful club in CAF Champions League history.',
@@ -223,6 +257,7 @@ const factsStat = document.getElementById('factsStat');
 const clubsCategoryCount = document.getElementById('clubsCategoryCount');
 const clubsCategoryBtn = document.getElementById('clubsCategoryBtn');
 const standingsSection = document.getElementById('standingsSection');
+const apiStatus = document.getElementById('apiStatus');
 const clubPage = document.getElementById('clubPage');
 const clubPageBack = document.getElementById('clubPageBack');
 const clubPageHeader = document.getElementById('clubPageHeader');
@@ -253,6 +288,494 @@ async function fetchFromApi(endpoint) {
   }
 
   return data;
+}
+
+function buildStandingsUrl(leagueId) {
+  return `${STANDINGS_API_URL}?league=${leagueId}&season=${STANDINGS_SEASON}`;
+}
+
+function buildEgyptNextFixturesUrl(teamId) {
+  return `${FIXTURES_API_URL}?team=${teamId}&next=${FIXTURES_NEXT_COUNT}`;
+}
+
+function buildEgyptLastFixturesUrl(teamId) {
+  return `${FIXTURES_API_URL}?team=${teamId}&last=${FIXTURES_LAST_COUNT}`;
+}
+
+function getRealLeagueId(leagueName = 'World Cup') {
+  if (worldLeaguesData?.leagues?.length) {
+    const exact = worldLeaguesData.leagues.find((item) => item.league?.name === leagueName);
+    if (exact?.league?.id) return exact.league.id;
+    const fuzzy = worldLeaguesData.leagues.find((item) =>
+      item.league?.name?.toLowerCase().includes(leagueName.toLowerCase()),
+    );
+    if (fuzzy?.league?.id) return fuzzy.league.id;
+  }
+  if (worldCupLeagueInfo?.league?.id) return worldCupLeagueInfo.league.id;
+  if (standingsData?.leagueId) return standingsData.leagueId;
+  if (leagueName === 'World Cup') return FALLBACK_WORLD_CUP_LEAGUE_ID;
+  return null;
+}
+
+function syncWorldCupFromWorldLeagues() {
+  if (!worldLeaguesData?.leagues?.length) return;
+  const entry = worldLeaguesData.leagues.find((item) => item.league?.name === 'World Cup')
+    || worldLeaguesData.leagues[0];
+  if (!entry) return;
+  worldCupLeagueInfo = {
+    league: entry.league,
+    country: entry.country,
+    season: STANDINGS_SEASON,
+    seasons: entry.seasons || [],
+    realLeagueId: entry.league.id,
+  };
+}
+
+async function fetchWorldLeagues() {
+  const url = `${LEAGUES_API_URL}?country=World`;
+  const response = await fetch(url, { headers: { 'x-apisports-key': API_KEY } });
+  if (!response.ok) throw new Error(`World leagues failed (${response.status})`);
+  const data = await response.json();
+  if (data.errors && Object.keys(data.errors).length > 0) {
+    throw new Error(Object.values(data.errors).join(' '));
+  }
+  worldLeaguesData = { leagues: data.response || [], url };
+  return worldLeaguesData;
+}
+
+async function fetchWorldCupLeague() {
+  const url = `${LEAGUES_API_URL}?name=World Cup`;
+  const response = await fetch(url, { headers: { 'x-apisports-key': API_KEY } });
+  if (!response.ok) throw new Error(`World Cup league failed (${response.status})`);
+  const data = await response.json();
+  if (data.errors && Object.keys(data.errors).length > 0) {
+    throw new Error(Object.values(data.errors).join(' '));
+  }
+  const entry = (data.response || []).find((item) => item.league?.name === 'World Cup') || data.response?.[0];
+  if (!entry) return null;
+  worldCupLeagueInfo = {
+    league: entry.league,
+    country: entry.country,
+    season: STANDINGS_SEASON,
+    seasons: entry.seasons || [],
+    realLeagueId: entry.league.id,
+  };
+  return worldCupLeagueInfo;
+}
+
+async function fetchStandings(leagueId) {
+  const id = leagueId ?? getRealLeagueId('World Cup');
+  if (!id) throw new Error('World Cup league ID not found');
+
+  const url = buildStandingsUrl(id);
+  const response = await fetch(url, { headers: { 'x-apisports-key': API_KEY } });
+  const data = await response.json();
+
+  if (!response.ok || (data.errors && Object.keys(data.errors).length > 0)) {
+    const message = data.errors ? Object.values(data.errors).join(' ') : `Standings failed (${response.status})`;
+    lastStandingsError = message;
+    throw new Error(message);
+  }
+
+  const block = data.response?.[0];
+  if (!block?.standings?.length) {
+    standingsData = null;
+    lastStandingsError = 'No standings data for this season yet.';
+    return null;
+  }
+
+  const rows = [];
+  block.standings.forEach((group) => group.forEach((row) => rows.push(row)));
+
+  standingsData = {
+    league: block.league,
+    season: STANDINGS_SEASON,
+    groups: block.standings,
+    rows,
+    url,
+    leagueId: id,
+  };
+
+  if (!findEgyptWorldCupGroup()) {
+    lastStandingsError = 'Standings loaded but Egypt not found — showing backup table.';
+  } else {
+    lastStandingsError = null;
+  }
+
+  return standingsData;
+}
+
+async function fetchEgyptFixturesFromApi(teamId, mode) {
+  const param = mode === 'last' ? 'last' : 'next';
+  const count = mode === 'last' ? FIXTURES_LAST_COUNT : FIXTURES_NEXT_COUNT;
+  const url = `${FIXTURES_API_URL}?team=${teamId}&${param}=${count}`;
+  const response = await fetch(url, { headers: { 'x-apisports-key': API_KEY } });
+  const data = await response.json();
+  if (!response.ok || (data.errors && Object.keys(data.errors).length > 0)) {
+    throw new Error(data.errors ? Object.values(data.errors).join(' ') : 'Fixtures failed');
+  }
+  return { fixtures: data.response || [], url };
+}
+
+async function fetchEgyptFixtures(teamId) {
+  const id = teamId ?? getEgyptNationalTeam()?.id;
+  if (!id) { egyptFixturesData = null; return null; }
+
+  let nextResult = { fixtures: [], url: buildEgyptNextFixturesUrl(id) };
+  let lastResult = { fixtures: [], url: buildEgyptLastFixturesUrl(id) };
+
+  try { nextResult = await fetchEgyptFixturesFromApi(id, 'next'); } catch (e) { console.warn('Next fixtures:', e); }
+  try { lastResult = await fetchEgyptFixturesFromApi(id, 'last'); } catch (e) { console.warn('Last fixtures:', e); }
+
+  egyptFixturesData = {
+    teamId: id,
+    next: nextResult.fixtures,
+    last: lastResult.fixtures,
+    nextUrl: nextResult.url,
+    lastUrl: lastResult.url,
+  };
+  return egyptFixturesData;
+}
+
+async function fetchTrophyFacts(teamId) {
+  const facts = [];
+  try {
+    const data = await fetchFromApi(`/trophies?team=${teamId}`);
+    const trophies = data.response || [];
+    if (trophies.length === 0) {
+      facts.push('Trophy data is limited, but the club continues to compete for honours.');
+      return facts;
+    }
+    facts.push(`Recorded ${trophies.length} trophy entries in football databases.`);
+    trophies.slice(0, 12).forEach((trophy) => {
+      const league = trophy.league || trophy.country || 'Competition';
+      const season = trophy.season || '';
+      const place = trophy.place || 'Participant';
+      facts.push(`${place} — ${league}${season ? ` (${season})` : ''}.`);
+    });
+  } catch {
+    facts.push('Trophy history spans many seasons of Egyptian and African football.');
+  }
+  return facts;
+}
+
+function findEgyptWorldCupGroup() {
+  if (!standingsData?.groups?.length) return null;
+  const egyptTeam = getEgyptNationalTeam();
+  const egyptId = egyptTeam?.id;
+
+  for (const group of standingsData.groups) {
+    const egyptRow = group.find(
+      (row) => row.team.id === egyptId || row.team.name.toLowerCase() === 'egypt',
+    );
+    if (egyptRow) {
+      return { rows: group, egyptRow, groupName: egyptRow.group || GROUP_G_WORLD_CUP.groupName };
+    }
+  }
+  return null;
+}
+
+function normalizeApiStandingsRow(row) {
+  return {
+    rank: row.rank,
+    name: row.team.name,
+    logo: row.team.logo,
+    flag: row.team.logo,
+    played: row.all?.played ?? 0,
+    win: row.all?.win ?? 0,
+    draw: row.all?.draw ?? 0,
+    lose: row.all?.lose ?? 0,
+    gf: row.all?.goals?.for ?? 0,
+    ga: row.all?.goals?.against ?? 0,
+    gd: row.goalsDiff ?? 0,
+    points: row.points ?? 0,
+    form: row.form || '',
+    status: row.status || '',
+    isEgypt: row.team.name.toLowerCase() === 'egypt',
+  };
+}
+
+function getSortedGroupTeams() {
+  const { teams } = getEgyptGroupTableData();
+  return [...teams].sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    if (b.points !== a.points) return b.points - a.points;
+    if (b.gd !== a.gd) return b.gd - a.gd;
+    return b.gf - a.gf;
+  });
+}
+
+function getGroupGMatchResults() {
+  return GROUP_G_WORLD_CUP.results.map((m) => ({ ...m, date: null }));
+}
+
+function getGroupGOfficialTableData() {
+  const egyptRow = GROUP_G_WORLD_CUP.teams.find((t) => t.isEgypt);
+  const apiUrl = buildStandingsUrl(getRealLeagueId('World Cup') || FALLBACK_WORLD_CUP_LEAGUE_ID);
+  return {
+    groupName: GROUP_G_WORLD_CUP.groupName,
+    teams: GROUP_G_WORLD_CUP.teams,
+    egyptRow,
+    source: 'official',
+    apiUrl,
+  };
+}
+
+function isOfficialGroupGTableComplete(apiTeams) {
+  if (!apiTeams?.length || apiTeams.length !== 4) return false;
+  const belgium = apiTeams.find((t) => t.name.toLowerCase().includes('belgium'));
+  const egypt = apiTeams.find((t) => t.isEgypt);
+  const iran = apiTeams.find((t) => t.name.toLowerCase().includes('iran'));
+  const nz = apiTeams.find((t) => t.name.toLowerCase().includes('new zealand'));
+  if (!belgium || !egypt || !iran || !nz) return false;
+  if (!apiTeams.every((t) => t.played >= GROUP_G_MAX_MATCHES)) return false;
+  return belgium.rank === 1 && egypt.rank === 2 && iran.rank === 3 && nz.rank === 4
+    && belgium.points === 5 && egypt.points === 5;
+}
+
+function getGroupGMaxPoints() {
+  const teams = getSortedGroupTeams();
+  const top = Math.max(...teams.map((t) => t.points), 1);
+  return Math.max(top, GROUP_G_MAX_MATCHES * 3);
+}
+
+function renderGroupGFormDots(form) {
+  if (!form) return '<span class="standings-form-empty">—</span>';
+  const chars = form.split('').slice(0, 5);
+  return `<span class="standings-form">${chars.map((c) => {
+    const cls = c === 'W' ? 'form-win' : c === 'D' ? 'form-draw' : c === 'L' ? 'form-loss' : 'form-unknown';
+    return `<span class="form-dot ${cls}" title="${c}">${c}</span>`;
+  }).join('')}</span>`;
+}
+
+function renderGroupGPointsChart() {
+  const teams = getSortedGroupTeams();
+  const maxPts = getGroupGMaxPoints();
+  const egyptLogo = getEgyptNationalTeam()?.logo || 'https://media.api-sports.io/football/teams/32.png';
+
+  const bars = teams.map((team) => {
+    const pct = Math.round((team.points / maxPts) * 100);
+    const logo = team.isEgypt ? (team.logo || egyptLogo) : (team.logo || team.flag);
+    return `
+      <div class="group-g-chart-row ${team.isEgypt ? 'group-g-chart-row-egypt' : ''}">
+        <div class="group-g-chart-meta">
+          <img src="${logo}" alt="" class="group-g-chart-logo">
+          <span class="group-g-chart-name">${escapeHtml(team.name)}${team.isEgypt ? ' 🇪🇬' : ''}</span>
+          <span class="group-g-chart-pts">${team.points} pts</span>
+        </div>
+        <div class="group-g-chart-track" aria-hidden="true">
+          <div class="group-g-chart-bar" style="width: ${pct}%"></div>
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="group-g-chart">
+      <div class="group-g-chart-header">
+        <h4 class="standings-group-label">Points chart</h4>
+        <span class="group-g-chart-note">Belgium &amp; Egypt → Round of 32</span>
+      </div>
+      <div class="group-g-chart-rows">${bars}</div>
+    </div>
+  `;
+}
+
+function getEgyptGroupTableData() {
+  const official = getGroupGOfficialTableData();
+  const apiGroup = findEgyptWorldCupGroup();
+  const apiUrl = standingsData?.url || official.apiUrl;
+
+  if (apiGroup?.rows?.length) {
+    const teams = apiGroup.rows.map(normalizeApiStandingsRow);
+    if (isOfficialGroupGTableComplete(teams)) {
+      return {
+        groupName: apiGroup.groupName,
+        teams,
+        egyptRow: normalizeApiStandingsRow(apiGroup.egyptRow),
+        source: 'api',
+        apiUrl,
+      };
+    }
+  }
+
+  return official;
+}
+
+function formatStandingsUpdatedTime() {
+  if (!standingsLastUpdated) return '';
+  return standingsLastUpdated.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+}
+
+function getEgyptStandingsSnapshot() {
+  const { egyptRow } = getEgyptGroupTableData();
+  if (!egyptRow) return null;
+  return `${egyptRow.rank}|${egyptRow.points}|${egyptRow.gf}|${egyptRow.ga}|${egyptRow.played}`;
+}
+
+function markStandingsUpdated() {
+  standingsLastUpdated = new Date();
+  const snapshot = getEgyptStandingsSnapshot();
+  const changed = lastEgyptStandingsSnapshot && snapshot && snapshot !== lastEgyptStandingsSnapshot;
+  lastEgyptStandingsSnapshot = snapshot;
+  return changed;
+}
+
+function renderStandingsLiveBadge() {
+  const { source } = getEgyptGroupTableData();
+  const isLive = source === 'api';
+  const isOfficial = source === 'official';
+  const updated = standingsLastUpdated
+    ? `Updated ${formatStandingsUpdatedTime()} · refreshes every 3 min`
+    : 'Final group stage complete';
+
+  const label = isLive
+    ? '● Live from API'
+    : isOfficial
+      ? '● Final standings (FIFA World Cup 2026)'
+      : '○ Backup data — retrying API';
+
+  const badgeClass = isLive
+    ? 'standings-live-badge-api'
+    : isOfficial
+      ? 'standings-live-badge-official'
+      : 'standings-live-badge-fallback';
+
+  const reason = lastStandingsError && !isOfficial
+    ? `<span class="standings-live-reason">${escapeHtml(lastStandingsError)}</span>`
+    : '';
+
+  return `
+    <div class="standings-live-badge ${badgeClass}">
+      <span class="standings-live-label">${label}</span>
+      <span class="standings-live-updated">${updated}</span>
+      ${reason}
+    </div>
+  `;
+}
+
+function formatFixtureDate(dateStr) {
+  if (!dateStr) return 'Date TBD';
+  return new Date(dateStr).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
+function formatFixtureScore(fx) {
+  const h = fx.goals?.home;
+  const a = fx.goals?.away;
+  if (h == null || a == null) return '';
+  return `${h}–${a}`;
+}
+
+function renderFixturesList(fixtures, { emptyMessage, showScore = false } = {}) {
+  if (!fixtures.length) return `<p class="fixtures-empty">${emptyMessage}</p>`;
+  const items = fixtures.map((fx) => {
+    const home = fx.teams?.home?.name || 'TBD';
+    const away = fx.teams?.away?.name || 'TBD';
+    const date = formatFixtureDate(fx.fixture?.date);
+    const score = showScore ? formatFixtureScore(fx) : '';
+    const vs = score || 'vs';
+    return `
+      <li class="fixture-item">
+        <span class="fixture-date">${escapeHtml(date)}</span>
+        <div class="fixture-match">
+          <span class="fixture-team">${escapeHtml(home)}</span>
+          <span class="fixture-vs ${score ? 'fixture-score' : ''}">${escapeHtml(vs)}</span>
+          <span class="fixture-team">${escapeHtml(away)}</span>
+        </div>
+      </li>
+    `;
+  }).join('');
+  return `<ul class="fixtures-list">${items}</ul>`;
+}
+
+function renderEgyptKnockoutBlock() {
+  const egyptLogo = getEgyptNationalTeam()?.logo || 'https://media.api-sports.io/football/teams/32.png';
+  const { nextRound, nextOpponent, nextNote, winRound, winOpponent } = EGYPT_KNOCKOUT_PATH;
+
+  return `
+    <div class="egypt-knockout">
+      <h4 class="standings-group-label">🇪🇬 Knockout path</h4>
+      <div class="knockout-path">
+        <div class="knockout-step knockout-step-next">
+          <span class="knockout-step-label">Next · ${escapeHtml(nextRound)}</span>
+          <div class="knockout-matchup">
+            <span class="knockout-team knockout-team-egypt">
+              <img src="${egyptLogo}" alt="" class="knockout-team-logo"> Egypt
+            </span>
+            <span class="knockout-vs">vs</span>
+            <span class="knockout-team">${escapeHtml(nextOpponent)}</span>
+          </div>
+          <span class="knockout-step-note">${escapeHtml(nextNote)}</span>
+        </div>
+        <div class="knockout-arrow" aria-hidden="true">↓</div>
+        <div class="knockout-step knockout-step-win">
+          <span class="knockout-step-label">If Egypt win · ${escapeHtml(winRound)}</span>
+          <div class="knockout-matchup knockout-matchup-future">
+            <span class="knockout-team knockout-team-egypt">
+              <img src="${egyptLogo}" alt="" class="knockout-team-logo"> Egypt
+            </span>
+            <span class="knockout-vs">vs</span>
+            <span class="knockout-team">${escapeHtml(winOpponent)}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function rerenderStandingsUI() {
+  renderStandingsSection();
+  if (activeClubView?.team?.name?.toLowerCase() === 'egypt' && !clubPage.hidden) {
+    clubPageBody.innerHTML = renderClubPageContent(
+      activeClubView.facts,
+      activeClubView.squad,
+      activeClubView.team,
+    );
+  }
+}
+
+async function refreshEgyptGroupStandings() {
+  const leagueId = getRealLeagueId('World Cup');
+  if (!leagueId) return false;
+  try {
+    const egyptTeam = getEgyptNationalTeam();
+    await Promise.all([
+      fetchStandings(leagueId),
+      fetchEgyptFixtures(egyptTeam?.id).catch(() => {}),
+    ]);
+    markStandingsUpdated();
+    rerenderStandingsUI();
+    return findEgyptWorldCupGroup() !== null;
+  } catch (err) {
+    console.error('Standings refresh failed:', err);
+    rerenderStandingsUI();
+    return false;
+  }
+}
+
+function stopStandingsAutoRefresh() {
+  if (standingsRefreshTimer) { clearTimeout(standingsRefreshTimer); standingsRefreshTimer = null; }
+  if (standingsVisibilityHandler) {
+    document.removeEventListener('visibilitychange', standingsVisibilityHandler);
+    standingsVisibilityHandler = null;
+  }
+}
+
+function scheduleNextStandingsRefresh() {
+  if (standingsRefreshTimer) clearTimeout(standingsRefreshTimer);
+  const delay = getEgyptGroupTableData().source === 'api' ? STANDINGS_REFRESH_MS : STANDINGS_RETRY_MS;
+  standingsRefreshTimer = setTimeout(async () => {
+    if (document.hidden) { scheduleNextStandingsRefresh(); return; }
+    await refreshEgyptGroupStandings();
+    scheduleNextStandingsRefresh();
+  }, delay);
+}
+
+function startStandingsAutoRefresh() {
+  stopStandingsAutoRefresh();
+  scheduleNextStandingsRefresh();
+  standingsVisibilityHandler = () => { if (!document.hidden) refreshEgyptGroupStandings(); };
+  document.addEventListener('visibilitychange', standingsVisibilityHandler);
 }
 
 function buildSquadUrl(teamId) {
@@ -318,14 +841,7 @@ function buildSquadFacts(squad, teamName) {
 }
 
 function renderSquadSection(players, teamName) {
-  if (players.length === 0) {
-    return `
-      <section class="squad-section">
-        <h3 class="club-block-title">Squad</h3>
-        <p class="squad-empty">No squad data available right now.</p>
-      </section>
-    `;
-  }
+  if (players.length === 0) return '';
 
   const cards = players.map((player) => `
     <article class="squad-player">
@@ -349,26 +865,8 @@ function renderSquadSection(players, teamName) {
   `;
 }
 
-function renderEgyptSquadBlock() {
-  const players = egyptSquadData?.players || [];
-  return `
-    <div class="egypt-squad-block">
-      ${renderSquadSection(players, 'Egypt')}
-    </div>
-  `;
-}
-
 function getEgyptNationalTeam() {
   return teamsCache.find((item) => isNationalTeam(item.team))?.team || null;
-}
-
-function getEgyptGroupTableData() {
-  const egyptRow = GROUP_G_WORLD_CUP.teams.find((t) => t.isEgypt);
-  return {
-    groupName: GROUP_G_WORLD_CUP.groupName,
-    teams: GROUP_G_WORLD_CUP.teams,
-    egyptRow,
-  };
 }
 
 function isNationalTeam(team) {
@@ -422,11 +920,34 @@ function buildStandingsFacts(teamName) {
   if (!egyptRow) return [];
 
   return [
-    `Egypt are in ${groupName} at the FIFA World Cup ${STANDINGS_SEASON} — rank ${egyptRow.rank} with ${egyptRow.points} point${egyptRow.points === 1 ? '' : 's'}.`,
-    `Group table: ${teams.map((t) => `${t.name} (${t.points} pts)`).join(', ')}.`,
+    `Egypt finished 2nd in ${groupName} at the FIFA World Cup ${STANDINGS_SEASON} with ${egyptRow.points} points — qualified for the Round of 32.`,
+    `Final table: ${teams.map((t) => `${t.rank}. ${t.name} (${t.points} pts)`).join(', ')}.`,
     `Egypt record: ${egyptRow.gf} GF, ${egyptRow.ga} GA — ${egyptRow.win}W-${egyptRow.draw}D-${egyptRow.lose}L from ${egyptRow.played} played.`,
-    'Matchday 1: Belgium 1–1 Egypt · Iran 2–2 New Zealand.',
+    `Belgium won the group on goal difference (+4 vs Egypt +2). Iran 3rd (3 pts), New Zealand 4th (1 pt).`,
+    `Next: Egypt vs ${EGYPT_KNOCKOUT_PATH.nextOpponent} (${EGYPT_KNOCKOUT_PATH.nextRound}). Win and the Pharaohs play ${EGYPT_KNOCKOUT_PATH.winOpponent} in the ${EGYPT_KNOCKOUT_PATH.winRound}.`,
   ];
+}
+
+function buildFixturesFacts(teamName) {
+  if (teamName.toLowerCase() !== 'egypt') return [];
+  const facts = [];
+
+  (egyptFixturesData?.next || []).slice(0, FIXTURES_NEXT_COUNT).forEach((fx) => {
+    const home = fx.teams?.home?.name || 'TBD';
+    const away = fx.teams?.away?.name || 'TBD';
+    const date = formatFixtureDate(fx.fixture?.date);
+    facts.push(`Upcoming: ${home} vs ${away} (${date}).`);
+  });
+
+  (egyptFixturesData?.last || []).slice(0, FIXTURES_LAST_COUNT).forEach((fx) => {
+    const home = fx.teams?.home?.name || 'TBD';
+    const away = fx.teams?.away?.name || 'TBD';
+    const date = formatFixtureDate(fx.fixture?.date);
+    const score = formatFixtureScore(fx);
+    facts.push(`Recent: ${home} vs ${away}${score ? ` ${score}` : ''} (${date}).`);
+  });
+
+  return facts;
 }
 
 function buildGlobalStandingsFacts() {
@@ -434,13 +955,48 @@ function buildGlobalStandingsFacts() {
   if (!egyptRow) return [];
 
   return [
-    `Egypt are in World Cup ${STANDINGS_SEASON} ${groupName} — rank ${egyptRow.rank} with ${egyptRow.points} point${egyptRow.points === 1 ? '' : 's'}.`,
+    `Egypt finished 2nd in World Cup ${STANDINGS_SEASON} ${groupName} with ${egyptRow.points} points — Round of 32.`,
     `Egypt: ${egyptRow.gf} GF, ${egyptRow.ga} GA, ${egyptRow.win}W-${egyptRow.draw}D-${egyptRow.lose}L.`,
-    `Full group: ${teams.map((t) => `${t.rank}. ${t.name}`).join(', ')}.`,
+    `Final group: ${teams.map((t) => `${t.rank}. ${t.name}`).join(', ')}.`,
+    `Knockout: Egypt vs ${EGYPT_KNOCKOUT_PATH.nextOpponent} next — beat them to face ${EGYPT_KNOCKOUT_PATH.winOpponent}.`,
   ];
 }
 
-function loadAllFactsForTeam(team, venue, squad = []) {
+async function buildSquadFactsAsync(squad, teamName) {
+  const facts = buildSquadFacts(squad, teamName);
+  if (squad.length > 8) {
+    squad.slice(8, 16).forEach((player) => {
+      const number = player.number ? `#${player.number} ` : '';
+      facts.push(`${number}${player.name} (${player.position || 'Player'}).`);
+    });
+  }
+  return facts;
+}
+
+async function loadAllFactsForTeam(team, venue, squad = []) {
+  const curated = getCuratedFacts(team.name);
+  const apiFacts = buildApiFacts(team, venue);
+  const generic = curated.length === 0
+    ? [`${team.name} is part of Egypt's rich football landscape.`]
+    : [];
+  const standingsFacts = buildStandingsFacts(team.name);
+  const fixturesFacts = buildFixturesFacts(team.name);
+  const squadFacts = await buildSquadFactsAsync(squad, team.name);
+  const trophyFacts = await fetchTrophyFacts(team.id);
+
+  return [...new Set([...curated, ...apiFacts, ...generic, ...standingsFacts, ...fixturesFacts, ...squadFacts, ...trophyFacts])];
+}
+
+function seedAllClubFactsFromCache() {
+  teamsCache.forEach((item) => {
+    const facts = loadAllFactsForTeamSync(item.team, item.venue);
+    facts.forEach((fact) => {
+      allClubFacts.push({ team: item.team.name, fact, logo: item.team.logo });
+    });
+  });
+}
+
+function loadAllFactsForTeamSync(team, venue, squad = []) {
   const curated = getCuratedFacts(team.name);
   const apiFacts = buildApiFacts(team, venue);
   const generic = curated.length === 0
@@ -452,22 +1008,37 @@ function loadAllFactsForTeam(team, venue, squad = []) {
 }
 
 function renderGroupGTableRows() {
-  const { teams } = getEgyptGroupTableData();
+  const teams = getSortedGroupTeams();
   const egyptLogo = getEgyptNationalTeam()?.logo || 'https://media.api-sports.io/football/teams/32.png';
+  const hasForm = teams.some((t) => t.form);
 
   return teams.map((team) => {
     const logo = team.isEgypt ? (team.logo || egyptLogo) : (team.logo || team.flag);
+    const qualClass = team.qualified ? 'standings-row-qualify' : team.eliminated ? 'standings-row-out' : '';
+    const egyptClass = team.isEgypt ? 'standings-row-egypt' : '';
+    const qualBadge = team.qualified
+      ? '<span class="standings-qual-badge">Q</span>'
+      : team.eliminated
+        ? '<span class="standings-out-badge">OUT</span>'
+        : team.rank <= 2
+          ? '<span class="standings-qual-badge">R16</span>'
+          : '';
     return `
-      <tr class="${team.isEgypt ? 'standings-row-egypt' : ''}">
+      <tr class="${qualClass} ${egyptClass}">
         <td class="standings-rank">${team.rank}</td>
         <td class="standings-team">
           <img src="${logo}" alt="" class="standings-team-logo">
           <span>${escapeHtml(team.name)}${team.isEgypt ? ' 🇪🇬' : ''}</span>
+          ${qualBadge}
         </td>
         <td>${team.played}</td>
+        <td>${team.win}</td>
+        <td>${team.draw}</td>
+        <td>${team.lose}</td>
         <td>${team.gf}</td>
         <td>${team.ga}</td>
         <td>${team.gd > 0 ? '+' : ''}${team.gd}</td>
+        ${hasForm ? `<td class="standings-form-cell">${renderGroupGFormDots(team.form)}</td>` : ''}
         <td class="standings-points">${team.points}</td>
       </tr>
     `;
@@ -483,8 +1054,8 @@ function renderEgyptPointsBanner() {
     <div class="egypt-points-banner">
       <img src="${egyptLogo}" alt="Egypt" class="egypt-points-logo">
       <div class="egypt-points-info">
-        <span class="egypt-points-label">Egypt</span>
-        <span class="egypt-points-value">${egyptRow.points} <small>pts</small></span>
+        <span class="egypt-points-label">Egypt · Qualified</span>
+        <span class="egypt-points-value">${egyptRow.points} <small>pts · 2nd</small></span>
       </div>
       <div class="egypt-points-stats">
         <div class="egypt-stat"><span class="egypt-stat-val">${egyptRow.rank}</span><span class="egypt-stat-lbl">Rank</span></div>
@@ -495,10 +1066,38 @@ function renderEgyptPointsBanner() {
   `;
 }
 
+function renderGroupGResultsList() {
+  const results = getGroupGMatchResults();
+  const matchdays = [1, 2, 3];
+
+  return matchdays.map((md) => {
+    const mdResults = results.filter((m) => m.matchday === md);
+    if (!mdResults.length) return '';
+    return `
+      <div class="group-g-matchday">
+        <h5 class="group-g-matchday-label">Matchday ${md}</h5>
+        <ul class="group-g-results-list">
+          ${mdResults.map((m) => `
+            <li class="group-g-result">
+              <div class="group-g-result-match">
+                <span>${escapeHtml(m.home)}</span>
+                <strong>${m.score}</strong>
+                <span>${escapeHtml(m.away)}</span>
+              </div>
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    `;
+  }).join('');
+}
+
 function renderGroupGTableMarkup(compact = false) {
-  const { groupName } = getEgyptGroupTableData();
+  const teams = getSortedGroupTeams();
+  const hasForm = teams.some((t) => t.form);
 
   return `
+    ${compact ? '' : renderGroupGPointsChart()}
     ${renderEgyptPointsBanner()}
     <div class="standings-table-wrap">
       <table class="standings-table ${compact ? 'standings-table-compact' : ''}">
@@ -507,9 +1106,13 @@ function renderGroupGTableMarkup(compact = false) {
             <th>#</th>
             <th>Team</th>
             <th>P</th>
+            <th>W</th>
+            <th>D</th>
+            <th>L</th>
             <th>GF</th>
             <th>GA</th>
             <th>GD</th>
+            ${hasForm ? '<th>Form</th>' : ''}
             <th>Pts</th>
           </tr>
         </thead>
@@ -517,36 +1120,33 @@ function renderGroupGTableMarkup(compact = false) {
       </table>
     </div>
     <div class="group-g-results">
-      <h4 class="standings-group-label">Matchday 1</h4>
-      <ul class="group-g-results-list">
-        ${GROUP_G_WORLD_CUP.results.map((m) => `
-          <li class="group-g-result">
-            <span>${escapeHtml(m.home)}</span>
-            <strong>${m.score}</strong>
-            <span>${escapeHtml(m.away)}</span>
-          </li>
-        `).join('')}
-      </ul>
+      <h4 class="standings-group-label">Group G — all results</h4>
+      ${renderGroupGResultsList()}
+    </div>
+  `;
+}
+
+function renderGroupGWorldCupTable() {
+  const season = STANDINGS_SEASON;
+  const { groupName } = getEgyptGroupTableData();
+
+  return `
+    <div class="standings-card standings-card-wc group-g-card">
+      <div class="standings-header">
+        <div>
+          <h3 class="standings-title">🏆 World Cup ${season} — ${escapeHtml(groupName)}</h3>
+          <p class="standings-subtitle">Final table — Belgium &amp; Egypt qualified · Iran &amp; New Zealand out</p>
+        </div>
+      </div>
+      ${renderStandingsLiveBadge()}
+      ${renderGroupGTableMarkup()}
+      ${renderEgyptKnockoutBlock()}
     </div>
   `;
 }
 
 function renderStandingsSection() {
-  const { groupName } = getEgyptGroupTableData();
-
-  standingsSection.innerHTML = `
-    <div class="standings-card group-g-card">
-      <div class="standings-header">
-        <div>
-          <span class="card-badge">World Cup ${STANDINGS_SEASON}</span>
-          <h3 class="standings-title">${escapeHtml(groupName)}</h3>
-          <p class="standings-subtitle">Belgium · Egypt · Iran · New Zealand</p>
-        </div>
-      </div>
-      ${renderGroupGTableMarkup()}
-      ${renderEgyptSquadBlock()}
-    </div>
-  `;
+  standingsSection.innerHTML = renderGroupGWorldCupTable();
 }
 
 function renderClubPageContent(facts, squad, team) {
@@ -556,14 +1156,19 @@ function renderClubPageContent(facts, squad, team) {
     ${renderSquadSection(squad, team.name)}
     ${isEgypt ? `
       <section class="club-block">
-        <h3 class="club-block-title">World Cup Group G</h3>
+        <h3 class="club-block-title">🏆 World Cup Group G</h3>
         <div class="standings-card group-g-card group-g-card-compact">
+          ${renderStandingsLiveBadge()}
           ${renderGroupGTableMarkup(true)}
         </div>
       </section>
+      <section class="club-block">
+        <h3 class="club-block-title">Knockout path</h3>
+        ${renderEgyptKnockoutBlock()}
+      </section>
     ` : ''}
     <section class="club-block">
-      <h3 class="club-block-title">Facts <span class="club-facts-count">${facts.length}</span></h3>
+      <h3 class="club-block-title">⚡ Club Facts <span class="club-facts-count">${facts.length}</span></h3>
       <ul class="club-facts club-facts-page">
         ${facts.map((fact) => `<li>${escapeHtml(fact)}</li>`).join('')}
       </ul>
@@ -592,7 +1197,7 @@ function openClubPage(team, venue) {
   clubPageBody.innerHTML = `
     <div class="club-page-loading">
       <div class="loading-spinner"></div>
-      <p>Loading squad &amp; facts…</p>
+      <p>Loading squad, API data &amp; facts…</p>
     </div>
   `;
 
@@ -602,15 +1207,15 @@ function openClubPage(team, venue) {
   window.scrollTo({ top: 0, behavior: 'instant' });
 
   fetchTeamSquad(team.id)
-    .then((squad) => {
-      const facts = loadAllFactsForTeam(team, venue, squad);
+    .then(async (squad) => {
+      const facts = await loadAllFactsForTeam(team, venue, squad);
       facts.forEach((fact) => allClubFacts.push({ team: team.name, fact, logo: team.logo }));
       activeClubView = { team, venue, squad, facts };
       clubPageBody.innerHTML = renderClubPageContent(facts, squad, team);
     })
-    .catch(() => {
+    .catch(async () => {
       const squad = [];
-      const facts = loadAllFactsForTeam(team, venue, squad);
+      const facts = await loadAllFactsForTeam(team, venue, squad);
       activeClubView = { team, venue, squad, facts };
       clubPageBody.innerHTML = renderClubPageContent(facts, squad, team);
     });
@@ -625,7 +1230,7 @@ function closeClubPage() {
 }
 
 function focusClubSearch() {
-  document.getElementById('searchSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.getElementById('teamsSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
   setTimeout(() => clubSearch.focus(), 400);
 }
 
@@ -736,7 +1341,17 @@ async function loadEgyptTeams() {
   allClubFacts = [];
   teamsCache = [];
   egyptSquadData = null;
+  egyptFixturesData = null;
+  standingsData = null;
+  worldCupLeagueInfo = null;
+  worldLeaguesData = null;
+  lastStandingsError = null;
+  standingsLastUpdated = null;
+  lastEgyptStandingsSnapshot = null;
+  stopStandingsAutoRefresh();
   activeClubView = null;
+  apiStatus.textContent = 'Loading…';
+  apiStatus.classList.remove('api-status-success', 'api-status-error');
   clubSearch.value = '';
   searchResults.innerHTML = '';
   searchResults.classList.remove('is-visible');
@@ -745,6 +1360,11 @@ async function loadEgyptTeams() {
 
   try {
     const teamsResult = await fetchFromApi('/teams?country=Egypt');
+
+    await fetchWorldLeagues().catch((err) => console.warn('World leagues:', err));
+    syncWorldCupFromWorldLeagues();
+    await fetchWorldCupLeague().catch((err) => console.warn('World Cup league:', err));
+
     const teams = teamsResult.response || [];
 
     if (teams.length === 0) {
@@ -764,9 +1384,20 @@ async function loadEgyptTeams() {
     updateSearchHint();
 
     const egyptTeam = getEgyptNationalTeam();
-    await fetchEgyptSquad(egyptTeam?.id);
+    const leagueId = getRealLeagueId('World Cup');
+
+    await fetchStandings(leagueId).catch((err) => console.error('Standings:', err));
+    if (findEgyptWorldCupGroup()) markStandingsUpdated();
+
+    await Promise.all([
+      fetchEgyptFixtures(egyptTeam?.id).catch((err) => console.error('Fixtures:', err)),
+      fetchEgyptSquad(egyptTeam?.id),
+    ]);
 
     renderStandingsSection();
+    startStandingsAutoRefresh();
+
+    seedAllClubFactsFromCache();
 
     buildGlobalStandingsFacts().forEach((fact) => {
       allClubFacts.push({ team: 'Egypt', fact, logo: getEgyptNationalTeam()?.logo || '' });
@@ -776,14 +1407,21 @@ async function loadEgyptTeams() {
       buildStandingsFacts(egyptTeam.name).forEach((fact) => {
         allClubFacts.push({ team: egyptTeam.name, fact, logo: egyptTeam.logo });
       });
+      buildFixturesFacts(egyptTeam.name).forEach((fact) => {
+        allClubFacts.push({ team: egyptTeam.name, fact, logo: egyptTeam.logo });
+      });
       buildSquadFacts(egyptSquadData?.players || [], egyptTeam.name).forEach((fact) => {
         allClubFacts.push({ team: egyptTeam.name, fact, logo: egyptTeam.logo });
       });
     }
 
     clubsStat.textContent = String(teams.length);
-    factsStat.textContent = `${teams.length * 20}+`;
+    factsStat.textContent = `${allClubFacts.length}+`;
     clubsCategoryCount.textContent = `${teams.length} Clubs`;
+
+    const standingsLabel = standingsData ? ' · standings loaded' : '';
+    apiStatus.textContent = `${teams.length} clubs — search to explore${standingsLabel}`;
+    apiStatus.classList.add('api-status-success');
 
     if (allClubFacts.length > 0) {
       const first = allClubFacts[0];
@@ -794,6 +1432,8 @@ async function loadEgyptTeams() {
     clubsStat.textContent = '—';
     factsStat.textContent = '—';
     clubsCategoryCount.textContent = 'Unavailable';
+    apiStatus.textContent = 'Error';
+    apiStatus.classList.add('api-status-error');
     renderStandingsSection();
     showTeamsError(error.message);
   }
@@ -807,5 +1447,7 @@ clubSearch.addEventListener('input', handleClubSearch);
 randomFactBtn.addEventListener('click', showRandomClubFact);
 exploreFactsBtn.addEventListener('click', focusClubSearch);
 clubsCategoryBtn.addEventListener('click', focusClubSearch);
+
+document.querySelector('.did-you-know')?.addEventListener('click', showRandomClubFact);
 
 loadEgyptTeams();
