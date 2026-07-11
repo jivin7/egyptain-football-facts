@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#ce1126">
+  <title>Videos — Egyptian Football Facts</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <div class="app-shell videos-mode">
+    <div class="subpage-bar">
+      <a href="index.html" class="club-page-back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Back
+      </a>
+      <h1 class="subpage-title">Football Reels</h1>
+      <a href="saved.html" class="subpage-link" aria-label="Saved">Saved</a>
+    </div>
+
+    <main class="app-main">
+      <div class="videos-view">
+        <div class="video-feed" id="videoFeed" aria-label="Football video feed"></div>
+      </div>
+
+      <footer class="site-footer site-footer-compact">
+        <nav class="footer-links" aria-label="Legal and info">
+          <a href="about.html">About</a>
+          <a href="privacy.html">Privacy</a>
+          <a href="contact.html">Contact</a>
+          <a href="terms.html">Terms</a>
+        </nav>
+        <p class="footer-copy">&copy; 2026 Egyptian Football Facts</p>
+      </footer>
+    </main>
+  </div>
+
+  <div class="comment-sheet" id="commentSheet" hidden>
+    <div class="comment-sheet-backdrop" id="commentBackdrop"></div>
+    <div class="comment-sheet-panel" role="dialog" aria-labelledby="commentSheetTitle">
+      <div class="comment-sheet-handle"></div>
+      <div class="comment-sheet-head">
+        <h3 id="commentSheetTitle">Comments</h3>
+        <button type="button" class="comment-sheet-close" id="commentClose" aria-label="Close comments">&times;</button>
+      </div>
+      <ul class="comment-list" id="commentList"></ul>
+      <form class="comment-form" id="commentForm">
+        <input type="text" id="commentInput" class="comment-input" placeholder="Add a comment…" maxlength="280" autocomplete="off">
+        <button type="submit" class="comment-submit">Post</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+
+  <script src="shared-storage.js"></script>
+  <script src="videos-data.js"></script>
+  <script src="videos.js"></script>
+</body>
+</html>

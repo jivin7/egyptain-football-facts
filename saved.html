@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#ce1126">
+  <title>Saved — Egyptian Football Facts</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <div class="app-shell">
+    <div class="subpage-bar">
+      <a href="index.html" class="club-page-back">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/>
+        </svg>
+        Back
+      </a>
+      <h1 class="subpage-title">Saved</h1>
+      <a href="videos.html" class="subpage-link">Videos</a>
+    </div>
+
+    <main class="app-main saved-page">
+      <section class="saved-section">
+        <div class="saved-section-head">
+          <h2 class="saved-section-title">Saved Videos</h2>
+          <span class="saved-section-count" id="savedVideosCount">0 videos</span>
+        </div>
+        <div class="saved-list" id="savedVideosList"></div>
+      </section>
+
+      <section class="saved-section">
+        <div class="saved-section-head">
+          <h2 class="saved-section-title">Saved Facts</h2>
+          <span class="saved-section-count" id="savedFactsCount">0 facts</span>
+        </div>
+        <div class="saved-facts-list" id="savedFactsList"></div>
+      </section>
+
+      <section class="saved-section api-reconnect-section">
+        <h2 class="saved-section-title">API Connection</h2>
+        <p class="api-reconnect-desc">Reconnect to load fresh Egypt clubs, standings, and facts from the football API.</p>
+        <button type="button" class="btn btn-primary" id="reconnectApiBtn">Reconnect to API</button>
+        <a href="index.html?refresh=1" class="btn btn-secondary api-refresh-link">Open home &amp; reload all data</a>
+        <p class="reconnect-status" id="reconnectStatus"></p>
+      </section>
+    </main>
+
+    <footer class="site-footer site-footer-compact">
+      <nav class="footer-links" aria-label="Legal and info">
+        <a href="about.html">About</a>
+        <a href="privacy.html">Privacy</a>
+        <a href="contact.html">Contact</a>
+        <a href="terms.html">Terms</a>
+      </nav>
+    </footer>
+  </div>
+
+  <script src="api-config.js"></script>
+  <script src="shared-storage.js"></script>
+  <script src="videos-data.js"></script>
+  <script src="saved.js"></script>
+</body>
+</html>
