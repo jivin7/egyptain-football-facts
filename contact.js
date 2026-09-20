@@ -12,7 +12,7 @@ contactForm?.addEventListener('submit', (e) => {
   const subjectLabels = {
     general: 'General question',
     facts: 'Fact correction',
-    api: 'API or data issue',
+    facts: 'Facts or club info',
     videos: 'Videos',
     privacy: 'Privacy',
     other: 'Other',

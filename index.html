@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -6,8 +6,8 @@
   <meta name="theme-color" content="#ce1126">
   <meta name="google-adsense-account" content="ca-pub-8947582768784485">
   <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8947582768784485" crossorigin="anonymous"></script>
-  <meta name="description" content="Egyptian Football Facts — crazy facts and real football from Egypt.">
-  <title>Egyptian Football Fact</title>
+  <meta name="description" content="Egyptian Football Facts — hundreds of crazy facts and real football from Egypt.">
+  <title>Egyptian Football Facts</title>
   <link rel="icon" type="image/png" href="logo.png">
   <link rel="apple-touch-icon" href="logo.png">
   <link rel="stylesheet" href="style.css">
@@ -21,7 +21,7 @@
     <header class="app-header">
       <a href="index.html" class="logo" aria-label="Egyptian Football Facts">
         <img src="logo.png" alt="Egyptian Football Facts" class="logo-img" width="48" height="48">
-        <span class="logo-text">Egyptian Football Fact</span>
+        <span class="logo-text">Egyptian Football Facts</span>
       </a>
     </header>
 
@@ -40,7 +40,7 @@
                 <span class="text-blue">CRAZY FACTS.</span>
                 <span class="text-pink">REAL FOOTBALL.</span>
               </h1>
-              <p class="hero-desc">Discover amazing facts about players, matches, clubs and more.</p>
+              <p class="hero-desc">Discover hundreds of facts about players, matches, clubs and more — tap Did You Know for a new one every time.</p>
               <div class="hero-actions">
                 <button class="btn btn-primary" id="exploreFactsBtn" type="button">
                   EXPLORE FACTS
@@ -59,6 +59,30 @@
               src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?w=400&h=500&fit=crop&crop=top"
               alt="Soccer player kicking ball"
             >
+          </div>
+        </section>
+
+        <section class="section" id="teamsSection">
+          <div class="section-header">
+            <h2 class="section-title">SEARCH EGYPT CLUBS</h2>
+          </div>
+
+          <div class="club-search">
+            <label class="search-label" for="clubSearch">Search any club in Egypt</label>
+            <div class="search-box">
+              <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              <input
+                type="search"
+                id="clubSearch"
+                class="search-input"
+                placeholder="Search Egypt clubs… e.g. Ahly, Zamalek, Masry, Aswan"
+                autocomplete="off"
+              >
+            </div>
+            <p class="search-hint" id="searchHint">Search Egypt clubs — tap one for facts</p>
+            <div class="search-results is-visible" id="searchResults"></div>
           </div>
         </section>
 
@@ -105,65 +129,42 @@
           </div>
         </section>
 
-        <section class="section" id="teamsSection">
+        <section class="section">
           <div class="section-header">
-            <h2 class="section-title">EGYPT CLUBS &amp; FACTS</h2>
-            <div class="section-header-actions">
-              <button type="button" class="btn-reconnect" id="reconnectApiBtn" title="Reconnect to API">↻ API</button>
-              <span class="api-status" id="apiStatus">Loading…</span>
-            </div>
+            <h2 class="section-title">WORLD CUP · GROUP G</h2>
           </div>
-
-          <div class="club-search">
-            <label class="search-label" for="clubSearch">Search a club</label>
-            <div class="search-box">
-              <svg class="search-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-              </svg>
-              <input
-                type="search"
-                id="clubSearch"
-                class="search-input"
-                placeholder="Search Egypt clubs… e.g. Ahly, Zamalek, Egypt"
-                autocomplete="off"
-              >
-            </div>
-            <p class="search-hint" id="searchHint">Loading clubs…</p>
-            <div class="search-results" id="searchResults"></div>
-          </div>
-
           <div id="standingsSection" class="standings-section"></div>
         </section>
 
         <section class="section">
           <div class="section-header">
-            <h2 class="section-title">EXPLORE CATEGORIES</h2>
+            <h2 class="section-title">FACT PAGES</h2>
           </div>
           <div class="categories-scroll">
-            <button class="category-card category-purple" type="button">
+            <a class="category-card category-purple" href="facts.html?cat=players">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>
               </svg>
               <span class="category-name">PLAYERS</span>
-              <span class="category-count">2,500+ Facts</span>
-            </button>
-            <button class="category-card category-green" id="clubsCategoryBtn" type="button">
+              <span class="category-count">Player facts</span>
+            </a>
+            <a class="category-card category-green" href="facts.html?cat=clubs" id="clubsCategoryBtn">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
               </svg>
               <span class="category-name">CLUBS</span>
-              <span class="category-count" id="clubsCategoryCount">Loading…</span>
-            </button>
-            <button class="category-card category-orange" type="button">
+              <span class="category-count" id="clubsCategoryCount">Clubs</span>
+            </a>
+            <a class="category-card category-orange" href="facts.html?cat=matches">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <rect x="2" y="4" width="20" height="16" rx="2"/>
                 <line x1="12" y1="4" x2="12" y2="20"/>
                 <circle cx="12" cy="12" r="3"/>
               </svg>
               <span class="category-name">MATCHES</span>
-              <span class="category-count">3,000+ Facts</span>
-            </button>
-            <button class="category-card category-pink" type="button">
+              <span class="category-count">Match facts</span>
+            </a>
+            <a class="category-card category-pink" href="facts.html?cat=competitions">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/>
                 <path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20 7 22"/>
@@ -171,15 +172,15 @@
                 <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/>
               </svg>
               <span class="category-name">COMPETITIONS</span>
-              <span class="category-count">1,200+ Facts</span>
-            </button>
-            <button class="category-card category-teal" type="button">
+              <span class="category-count">Trophy facts</span>
+            </a>
+            <a class="category-card category-teal" href="facts.html?cat=legends">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
               </svg>
               <span class="category-name">LEGENDS</span>
-              <span class="category-count">1,300+ Facts</span>
-            </button>
+              <span class="category-count">Icon facts</span>
+            </a>
           </div>
         </section>
 
@@ -232,7 +233,7 @@
         <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         <span>Home</span>
       </a>
-      <a href="index.html#teamsSection" class="nav-item">
+      <a href="facts.html" class="nav-item">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/></svg>
         <span>Facts</span>
       </a>
@@ -253,8 +254,10 @@
 
   <div class="toast" id="toast" hidden></div>
 
-  <script src="api-config.js"></script>
   <script src="shared-storage.js"></script>
+  <script src="curated-facts.js"></script>
+  <script src="extra-facts.js"></script>
+  <script src="egypt-clubs.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

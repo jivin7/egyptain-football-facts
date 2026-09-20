@@ -1,4 +1,4 @@
-const EffStorage = (() => {
+﻿const EffStorage = (() => {
   const KEYS = {
     VIDEO_LIKES: 'eff_video_likes',
     VIDEO_SAVES: 'eff_video_saves',
@@ -62,8 +62,14 @@ const EffStorage = (() => {
     return loadJson(KEYS.FACT_SAVES, []);
   }
 
-  function isFactSaved(team, fact) {
-    const id = getFactId(team, fact);
+  function isFactSaved(teamOrPick, fact) {
+    let team = teamOrPick;
+    let factText = fact;
+    if (teamOrPick && typeof teamOrPick === 'object') {
+      team = teamOrPick.team;
+      factText = teamOrPick.fact;
+    }
+    const id = getFactId(team, factText);
     return getSavedFacts().some((item) => item.id === id);
   }
 
@@ -117,3 +123,4 @@ const EffStorage = (() => {
 })();
 
 window.EffStorage = EffStorage;
+
