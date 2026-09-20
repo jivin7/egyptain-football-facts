@@ -662,6 +662,29 @@ body::before {
   margin-top: 12px;
 }
 
+.search-results.is-visible {
+  display: flex;
+}
+
+.clubs-list-label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--egypt-gold-dark, #d4a017);
+  margin: 4px 0 2px;
+}
+
+.clubs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: min(55vh, 420px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 4px;
+}
+
 .search-result-item {
   display: flex;
   align-items: center;

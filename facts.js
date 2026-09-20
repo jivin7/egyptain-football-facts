@@ -166,13 +166,16 @@ function onSearch() {
   const q = searchInput.value || '';
   const clubs = searchEgyptClubs(q);
   searchHint.textContent = q.trim()
-    ? `${clubs.length} club${clubs.length === 1 ? '' : 's'} found`
-    : `Type to search ${EGYPT_CLUBS.length} Egypt clubs`;
-  renderClubResults(q.trim() ? clubs : clubs.slice(0, 6));
+    ? `${clubs.length} club${clubs.length === 1 ? '' : 's'} found — tap for facts`
+    : `${EGYPT_CLUBS.length} Egypt clubs — tap a club for facts`;
+  renderClubResults(clubs);
 }
 
 renderCategories();
 searchInput.addEventListener('input', onSearch);
+searchInput.addEventListener('focus', () => {
+  if (!(searchInput.value || '').trim()) onSearch();
+});
 onSearch();
 
 if (clubId) {

@@ -87,36 +87,50 @@ function badgeHtml(club) {
 
 function renderSearchResults(clubs) {
   if (!searchResults) return;
+  searchResults.hidden = false;
+  searchResults.classList.add('is-visible');
+
   if (!clubs.length) {
     searchResults.innerHTML = '<p class="search-empty">No Egypt clubs match that search.</p>';
-    searchResults.classList.add('is-visible');
     return;
   }
 
-  searchResults.innerHTML = clubs.map((club) => {
-    const count = getClubFacts(club).length;
-    return `
-      <button type="button" class="search-result-item" data-club-id="${escapeHtml(club.id)}">
-        ${badgeHtml(club)}
-        <span class="search-result-info">
-          <span class="search-result-name">${escapeHtml(club.name)}</span>
-          <span class="search-result-meta">${escapeHtml(club.city)} · ${count} facts${club.nickname ? ` · ${escapeHtml(club.nickname)}` : ''}</span>
-        </span>
-      </button>
-    `;
-  }).join('');
-  searchResults.classList.add('is-visible');
+  searchResults.innerHTML = `
+    <p class="clubs-list-label">${clubs.length} Egypt club${clubs.length === 1 ? '' : 's'}</p>
+    <div class="clubs-list">
+      ${clubs.map((club) => {
+        const count = getClubFacts(club).length;
+        return `
+          <button type="button" class="search-result-item" data-club-id="${escapeHtml(club.id)}">
+            ${badgeHtml(club)}
+            <span class="search-result-info">
+              <span class="search-result-name">${escapeHtml(club.name)}</span>
+              <span class="search-result-meta">${escapeHtml(club.city)} · ${count} facts${club.nickname ? ` · ${escapeHtml(club.nickname)}` : ''}</span>
+            </span>
+          </button>
+        `;
+      }).join('')}
+    </div>
+  `;
 }
 
 function handleClubSearch() {
   const q = clubSearch?.value || '';
-  const clubs = searchEgyptClubs(q);
+  const clubs = typeof searchEgyptClubs === 'function' ? searchEgyptClubs(q) : [];
   if (searchHint) {
     searchHint.textContent = q.trim()
       ? `${clubs.length} club${clubs.length === 1 ? '' : 's'} found — tap for facts`
-      : `${EGYPT_CLUBS.length} Egypt clubs — type to filter, tap for facts`;
+      : `${clubs.length} Egypt clubs — tap a club for facts`;
   }
   renderSearchResults(clubs);
+}
+
+function showAllClubs() {
+  if (typeof EGYPT_CLUBS === 'undefined') return;
+  if (searchHint) {
+    searchHint.textContent = `${EGYPT_CLUBS.length} Egypt clubs — tap a club for facts`;
+  }
+  renderSearchResults(EGYPT_CLUBS);
 }
 
 function openClubPage(club) {
@@ -279,17 +293,22 @@ function focusClubSearch() {
 }
 
 function initLocalApp() {
-  allClubFacts = getAllFactPool();
+  // Always show clubs under the search bar first
+  showAllClubs();
 
-  if (clubsStat) clubsStat.textContent = String(EGYPT_CLUBS.length);
-  if (factsStat) factsStat.textContent = `${allClubFacts.length}+`;
-  if (clubsCategoryCount) clubsCategoryCount.textContent = `${EGYPT_CLUBS.length} Clubs`;
-  if (searchHint) searchHint.textContent = `Search ${EGYPT_CLUBS.length} Egypt clubs — tap one for facts`;
+  try {
+    allClubFacts = typeof getAllFactPool === 'function' ? getAllFactPool() : [];
+  } catch (err) {
+    console.error(err);
+    allClubFacts = [];
+  }
+
+  if (clubsStat) clubsStat.textContent = String(EGYPT_CLUBS?.length || 0);
+  if (factsStat) factsStat.textContent = allClubFacts.length ? `${allClubFacts.length}+` : '—';
+  if (clubsCategoryCount) clubsCategoryCount.textContent = `${EGYPT_CLUBS?.length || 0} Clubs`;
 
   renderStandingsSection();
-  handleClubSearch();
-  // show full club list on home by default
-  renderSearchResults(EGYPT_CLUBS);
+  showAllClubs();
 
   if (allClubFacts.length) {
     displayFact(allClubFacts[Math.floor(Math.random() * allClubFacts.length)]);
@@ -309,6 +328,12 @@ document.addEventListener('keydown', (e) => {
 });
 clubPageBody?.addEventListener('click', handleClubFactSaveClick);
 clubSearch?.addEventListener('input', handleClubSearch);
+clubSearch?.addEventListener('focus', () => {
+  if (!(clubSearch.value || '').trim()) showAllClubs();
+});
+clubSearch?.addEventListener('click', () => {
+  if (!(clubSearch.value || '').trim()) showAllClubs();
+});
 searchResults?.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-club-id]');
   if (!btn) return;
