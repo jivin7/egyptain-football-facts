@@ -4,6 +4,8 @@
     VIDEO_SAVES: 'eff_video_saves',
     VIDEO_COMMENTS: 'eff_video_comments',
     FACT_SAVES: 'eff_fact_saves',
+    GAME_POINTS: 'eff_game_points',
+    GAME_STATS: 'eff_game_stats',
   };
 
   function escapeHtml(text) {
@@ -104,6 +106,31 @@
     return String(n);
   }
 
+  function getGamePoints() {
+    const n = Number(localStorage.getItem(KEYS.GAME_POINTS) || 0);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function addGamePoints(amount) {
+    const next = getGamePoints() + Math.max(0, Number(amount) || 0);
+    localStorage.setItem(KEYS.GAME_POINTS, String(next));
+    return next;
+  }
+
+  function getGameStats() {
+    return loadJson(KEYS.GAME_STATS, { wins: 0, losses: 0, draws: 0, played: 0 });
+  }
+
+  function recordGameResult(result) {
+    const stats = getGameStats();
+    stats.played += 1;
+    if (result === 'win') stats.wins += 1;
+    else if (result === 'loss') stats.losses += 1;
+    else stats.draws += 1;
+    saveJson(KEYS.GAME_STATS, stats);
+    return stats;
+  }
+
   return {
     KEYS,
     escapeHtml,
@@ -119,6 +146,10 @@
     toggleSaveFact,
     removeSavedFact,
     formatVideoCount,
+    getGamePoints,
+    addGamePoints,
+    getGameStats,
+    recordGameResult,
   };
 })();
 

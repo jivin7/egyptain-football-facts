@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="theme-color" content="#ce1126">
+  <meta name="google-adsense-account" content="ca-pub-8947582768784485">
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8947582768784485" crossorigin="anonymous"></script>
+  <meta name="description" content="Penalty shootout game — shoot or save, best of 5, easy medium hard, earn points.">
+  <title>Penalty Shootout — Egyptian Football Facts</title>
+  <link rel="icon" type="image/png" href="logo.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <div class="subpage-bar">
+      <a href="games.html" class="club-page-back">Games</a>
+      <h1 class="subpage-title">Penalties</h1>
+      <span class="subpage-link" id="penPoints">0 pts</span>
+    </div>
+
+    <main class="app-main penalty-page">
+      <!-- SETUP -->
+      <section class="pen-setup" id="penSetup">
+        <h2 class="pen-title">Penalty Shootout</h2>
+        <p class="pen-sub">Best of 5 · Earn points when you win</p>
+
+        <div class="pen-field-group">
+          <p class="pen-label">1. Choose your role</p>
+          <div class="pen-choice-row" id="roleChoices">
+            <button type="button" class="pen-choice is-selected" data-role="shoot">Shoot</button>
+            <button type="button" class="pen-choice" data-role="save">Save</button>
+          </div>
+        </div>
+
+        <div class="pen-field-group">
+          <p class="pen-label">2. Choose difficulty</p>
+          <div class="pen-choice-row" id="diffChoices">
+            <button type="button" class="pen-choice is-selected" data-diff="easy">Easy<br><small>+15 pts win</small></button>
+            <button type="button" class="pen-choice" data-diff="medium">Medium<br><small>+30 pts win</small></button>
+            <button type="button" class="pen-choice" data-diff="hard">Hard<br><small>+50 pts win</small></button>
+          </div>
+        </div>
+
+        <button type="button" class="btn btn-primary pen-start-btn" id="penStartBtn">Start shootout</button>
+      </section>
+
+      <!-- PLAY -->
+      <section class="pen-play" id="penPlay" hidden>
+        <div class="pen-scoreboard">
+          <div class="pen-score-side">
+            <span class="pen-score-name">You</span>
+            <span class="pen-score-num" id="youScore">0</span>
+          </div>
+          <div class="pen-score-mid">
+            <span id="penRoundLabel">Round 1 / 5</span>
+            <span class="pen-mode-tag" id="penModeTag">Shooting</span>
+          </div>
+          <div class="pen-score-side">
+            <span class="pen-score-name" id="cpuLabel">CPU</span>
+            <span class="pen-score-num" id="cpuScore">0</span>
+          </div>
+        </div>
+
+        <div class="pen-pitch" id="penPitch">
+          <div class="pen-sky"></div>
+          <div class="pen-goal">
+            <div class="pen-goal-net"></div>
+            <div class="pen-zones">
+              <button type="button" class="pen-zone" data-dir="left" aria-label="Left">L</button>
+              <button type="button" class="pen-zone" data-dir="center" aria-label="Center">C</button>
+              <button type="button" class="pen-zone" data-dir="right" aria-label="Right">R</button>
+            </div>
+            <div class="pen-keeper" id="penKeeper" data-dive="center">
+              <div class="pen-keeper-body"></div>
+              <div class="pen-keeper-gloves"></div>
+            </div>
+            <div class="pen-ball" id="penBall" data-pos="spot"></div>
+          </div>
+          <div class="pen-grass"></div>
+          <p class="pen-prompt" id="penPrompt">Pick a corner to shoot</p>
+        </div>
+
+        <div class="pen-history" id="penHistory" aria-label="Kick results"></div>
+      </section>
+
+      <!-- RESULT -->
+      <section class="pen-result" id="penResult" hidden>
+        <h2 class="pen-result-title" id="penResultTitle">You win!</h2>
+        <p class="pen-result-score" id="penResultScore">3 – 2</p>
+        <p class="pen-result-points" id="penResultPoints">+30 points</p>
+        <p class="pen-result-total" id="penResultTotal">Total: 0 pts</p>
+        <div class="pen-result-actions">
+          <button type="button" class="btn btn-primary" id="penPlayAgain">Play again</button>
+          <a href="games.html" class="btn btn-secondary">Back to games</a>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast" hidden></div>
+  <script src="shared-storage.js"></script>
+  <script src="penalty.js"></script>
+</body>
+</html>
