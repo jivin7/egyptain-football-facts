@@ -3776,3 +3776,323 @@ a.category-card {
   flex-direction: column;
   gap: 10px;
 }
+
+/* ── Football Life Simulator ── */
+.life-body {
+  background: #070b14;
+}
+.life-shell {
+  max-width: 520px;
+  background: #0b1220;
+  color: #e8eefc;
+}
+.life-bar {
+  background: rgba(11, 18, 32, 0.95);
+  border-bottom-color: rgba(255,255,255,0.08);
+  color: #fff;
+}
+.life-bar .club-page-back,
+.life-bar .subpage-title,
+.life-bar .subpage-link { color: #fff; }
+.life-main { padding: 12px 14px 28px; }
+.life-hero {
+  padding: 8px 4px 16px;
+}
+.life-kicker {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: #7dd3fc;
+  margin: 0 0 6px;
+}
+.life-hero h2 {
+  font-size: 22px;
+  font-weight: 900;
+  margin: 0 0 8px;
+  color: #fff;
+}
+.life-hero p {
+  font-size: 14px;
+  color: #9db0d0;
+  line-height: 1.5;
+  margin: 0;
+}
+.life-invite-card {
+  padding: 16px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #132038, #0f1a2e);
+  border: 1px solid rgba(125, 211, 252, 0.25);
+  margin-bottom: 14px;
+}
+.life-invite-label {
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #7dd3fc;
+  margin: 0 0 6px;
+}
+.life-invite-card h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  color: #fff;
+}
+.life-invite-card p {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #9db0d0;
+}
+.life-invite-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.life-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 13px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+}
+.life-btn-go {
+  background: #16a34a;
+  color: #fff;
+}
+.life-btn-miss {
+  background: #b91c1c;
+  color: #fff;
+}
+.life-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.life-card {
+  background: #121a2b;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 14px;
+}
+.life-card-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+  margin: 0 0 8px;
+}
+.life-help {
+  font-size: 12px;
+  color: #8ea0c0;
+  margin: 0 0 12px;
+}
+.life-profile {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+}
+.life-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: linear-gradient(145deg, #ce1126, #f5c518);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  color: #fff;
+  font-size: 18px;
+}
+.life-profile-info h3 {
+  margin: 0;
+  font-size: 20px;
+  color: #fff;
+}
+.life-level {
+  margin: 2px 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #7dd3fc;
+}
+.life-xp-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.1);
+  overflow: hidden;
+}
+.life-xp-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #38bdf8, #22c55e);
+}
+.life-xp-text {
+  font-size: 11px;
+  color: #8ea0c0;
+  margin: 4px 0 0;
+}
+.life-stat-list {
+  grid-column: 1 / -1;
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.life-stat-list li {
+  background: rgba(255,255,255,0.04);
+  border-radius: 10px;
+  padding: 8px;
+  text-align: center;
+}
+.life-stat-list span {
+  display: block;
+  font-size: 10px;
+  color: #8ea0c0;
+  margin-bottom: 2px;
+}
+.life-stat-list strong {
+  font-size: 16px;
+  color: #fff;
+}
+.life-goals {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.life-goals li {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  font-size: 13px;
+  color: #c9d6ef;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+}
+.life-goals li.is-done {
+  color: #86efac;
+}
+.life-goal-check {
+  font-weight: 900;
+  color: #7dd3fc;
+}
+.life-skill-row {
+  margin-bottom: 12px;
+}
+.life-skill-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #c9d6ef;
+  margin-bottom: 4px;
+}
+.life-skill-track {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.08);
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.life-skill-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6, #22d3ee);
+}
+.life-train-btn,
+.life-buy-btn {
+  width: 100%;
+  min-height: 36px;
+  border-radius: 8px;
+  border: 1px solid rgba(125,211,252,0.35);
+  background: rgba(56, 189, 248, 0.12);
+  color: #7dd3fc;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+.life-train-btn:disabled,
+.life-buy-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.life-houses {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.life-house {
+  background: rgba(255,255,255,0.04);
+  border-radius: 12px;
+  padding: 10px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.life-house.is-owned {
+  border-color: #22c55e;
+}
+.life-house-visual {
+  height: 54px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: linear-gradient(135deg, #334155, #1e293b);
+}
+.life-house-visual[data-house="flat"] { background: linear-gradient(135deg, #64748b, #334155); }
+.life-house-visual[data-house="town"] { background: linear-gradient(135deg, #0ea5e9, #0369a1); }
+.life-house-visual[data-house="villa"] { background: linear-gradient(135deg, #f5c518, #ce1126); }
+.life-house-visual[data-house="pent"] { background: linear-gradient(135deg, #a78bfa, #4c1d95); }
+.life-house h4 {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: #fff;
+}
+.life-house p {
+  margin: 0;
+  font-size: 11px;
+  color: #8ea0c0;
+  line-height: 1.35;
+}
+.life-house-price {
+  margin: 6px 0 !important;
+  font-weight: 800 !important;
+  color: #fde68a !important;
+}
+.life-places {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.life-place {
+  min-height: 42px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.05);
+  color: #e8eefc;
+  font-weight: 700;
+  font-size: 12px;
+  cursor: pointer;
+}
+.life-place-msg {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #9db0d0;
+}
+.life-footer {
+  background: transparent;
+  border-top-color: rgba(255,255,255,0.08);
+  margin-top: 16px;
+}
+.life-footer .footer-copy { color: #8ea0c0; }
+.life-nav {
+  background: #0b1220;
+  border-top-color: rgba(255,255,255,0.08);
+}
+.life-nav .nav-item { color: #8ea0c0; }
+.life-nav .nav-item.active {
+  color: #7dd3fc;
+  background: rgba(125, 211, 252, 0.12);
+}

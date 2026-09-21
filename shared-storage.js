@@ -6,6 +6,7 @@
     FACT_SAVES: 'eff_fact_saves',
     GAME_POINTS: 'eff_game_points',
     GAME_STATS: 'eff_game_stats',
+    LIFE_DATA: 'eff_football_life',
   };
 
   function escapeHtml(text) {
@@ -117,18 +118,39 @@
     return next;
   }
 
-  function getGameStats() {
-    return loadJson(KEYS.GAME_STATS, { wins: 0, losses: 0, draws: 0, played: 0 });
+  function spendGamePoints(amount) {
+    const cost = Math.max(0, Number(amount) || 0);
+    const cur = getGamePoints();
+    if (cur < cost) return false;
+    localStorage.setItem(KEYS.GAME_POINTS, String(cur - cost));
+    return true;
   }
 
-  function recordGameResult(result) {
+  function defaultLifeData() {
+    return {
+      name: 'JIVIN',
+      skills: { speed: 22, shooting: 28, passing: 24, dribbling: 20 },
+      houses: [],
+      outfit: 'starter',
+      lastTrainAt: 0,
+    };
+  }
+
+  function getLifeData() {
+    return { ...defaultLifeData(), ...loadJson(KEYS.LIFE_DATA, {}) };
+  }
+
+  function saveLifeData(data) {
+    saveJson(KEYS.LIFE_DATA, data);
+  }
+
+  function getPlayerLevel() {
+    const pts = getGamePoints();
     const stats = getGameStats();
-    stats.played += 1;
-    if (result === 'win') stats.wins += 1;
-    else if (result === 'loss') stats.losses += 1;
-    else stats.draws += 1;
-    saveJson(KEYS.GAME_STATS, stats);
-    return stats;
+    const xp = pts + stats.wins * 10;
+    const level = Math.max(1, Math.floor(xp / 40) + 1);
+    const into = xp % 40;
+    return { level, xp, into, need: 40, progress: Math.round((into / 40) * 100) };
   }
 
   return {
@@ -148,8 +170,12 @@
     formatVideoCount,
     getGamePoints,
     addGamePoints,
+    spendGamePoints,
     getGameStats,
     recordGameResult,
+    getLifeData,
+    saveLifeData,
+    getPlayerLevel,
   };
 })();
 
