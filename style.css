@@ -2087,6 +2087,14 @@ body::before {
   line-height: 1.5;
 }
 
+.footer-credit {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--egypt-red, #ce1126);
+  margin-top: 6px;
+  letter-spacing: 0.02em;
+}
+
 /* ── Legal & Subpages ───────────────────────────────────────────────────────── */
 
 .legal-page {
